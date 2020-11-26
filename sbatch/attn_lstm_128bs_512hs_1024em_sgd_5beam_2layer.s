@@ -24,7 +24,7 @@ source activate nmt_env
 PROJECT=/scratch/${NETID}/nlp_project
 
 # Set arguments
-STUDY_NAME=attn_gru_128bs_512hs_1024em_sgd_3beam_2layer
+STUDY_NAME=attn_lstm_128bs_512hs_1024em_sgd_5beam_2layer
 SAVE_DIR=${PROJECT}/saved_models
 DATA_DIR=${PROJECT}/nmt-vi-en/data/interim/iwslt15-en-vn
 PLOT_DIR=${PROJECT}/plots
@@ -36,13 +36,13 @@ TARGET_NAME='en'
 ENC_HIDDEN=512
 ENC_EMB=1024
 ENC_LAYERS=2
-RNN_TYPE='gru'
+RNN_TYPE='lstm'
 DEC_EMB=512
 DEC_HIDDEN=1024
 DEC_LAYERS=2
 EPOCHS=15
 ATTN=TRUE
-BEAM_SIZE=3
+BEAM_SIZE=5
 OPTIM=sgd
 
 
