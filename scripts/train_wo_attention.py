@@ -1,5 +1,6 @@
 """
 Main run script to execute NMT evaluation
+NO ATTENTION
 """
 # =============== Import Modules ==============
 import os
@@ -87,7 +88,7 @@ def main():
 
 	learning_rate = parser.learning_rate
 	num_epochs = parser.epochs
-	attn_flag = parser.attn
+	attn_flag = parser.wo_attn
 	log.info("The attention flag is set to {}.".format(attn_flag))
 	beam_size = parser.beam_size
 	log.info("We evaluate using beam size of {}.".format(beam_size))
@@ -116,16 +117,17 @@ def main():
 	dataloader = {x: DataLoader(transformed_dataset[x], batch_size=bs_dict[x], collate_fn=collate_fn_dict[x], shuffle=shuffle_dict[x], num_workers=0) for x in ['train', 'validate', 'test']}
 
 	# instantiate encoder/decoder
-	encoder_w_att = nnet_models.EncoderRNN(input_size = vi_lang.n_words, embed_dim = enc_emb, hidden_size = enc_hidden, n_layers=enc_layers, rnn_type=rnn_type).to(device)
-	decoder_w_att = nnet_models.AttentionDecoderRNN(output_size = en_lang.n_words, embed_dim = dec_emb, hidden_size = dec_hidden, n_layers = dec_layers, attention = attn_flag).to(device)
+	encoder_wo_att = nnet_models.EncoderRNN(input_size = vi_lang.n_words, embed_dim = enc_emb, hidden_size = enc_hidden, n_layers=enc_layers, rnn_type=rnn_type).to(device)
+	decoder_wo_att = nnet_models.AttentionDecoderRNN(output_size = en_lang.n_words, embed_dim = dec_emb, hidden_size = dec_hidden, n_layers = dec_layers, attention = attn_flag).to(device)
 
 	# instantiate optimizer
 	if parser.optimizer == 'sgd':
-		encoder_optimizer = optim.SGD(encoder_w_att.parameters(), lr = learning_rate, nesterov = True, momentum = 0.99)
-		decoder_optimizer = optim.SGD(decoder_w_att.parameters(), lr = learning_rate,nesterov = True, momentum = 0.99)
+		encoder_optimizer = optim.SGD(encoder_wo_att.parameters(), lr = learning_rate, nesterov = True, momentum = 0.99)
+		decoder_optimizer = optim.SGD(decoder_wo_att.parameters(), lr = learning_rate,nesterov = True, momentum = 0.99)
 	elif parser.optimizer == 'adam':
-		encoder_optimizer = optim.Adam(encoder_w_att.parameters(), lr = 5e-3)
-		decoder_optimizer = optim.Adam(decoder_w_att.parameters(), lr = 5e-3)
+		# lee kho learning rate
+		encoder_optimizer = optim.Adam(encoder_wo_att.parameters(), lr = 1e-4)
+		decoder_optimizer = optim.Adam(decoder_wo_att.parameters(), lr = 1e-4)
 	else:
 		raise ValueError('Invalid optimizer!')
 
@@ -139,30 +141,30 @@ def main():
 
 	# do we want to train again?
 	train_again = False
-	encoder_save = '{}_att_{}bs_{}hs_{}_{}beam_enc_{}_layer'.format(rnn_type, bs, enc_hidden, parser.optimizer, beam_size, enc_layers)
-	decoder_save = '{}_att_{}bs_{}hs_{}_{}beam_dec_{}_layer'.format(rnn_type, bs, enc_hidden, parser.optimizer, beam_size, dec_layers)
+	encoder_save = '{}_wo_att_{}bs_{}hs_{}_{}beam_enc_{}_layer'.format(rnn_type, bs, enc_hidden, parser.optimizer, beam_size, enc_layers)
+	decoder_save = '{}_wo_att_{}bs_{}hs_{}_{}beam_dec_{}_layer'.format(rnn_type, bs, enc_hidden, parser.optimizer, beam_size, dec_layers)
 
 	if os.path.exists(utils.get_full_filepath(saved_models_dir, encoder_save)) and os.path.exists(utils.get_full_filepath(saved_models_dir, decoder_save)) and (not train_again):
 		log.info("Retrieving saved encoder from {}".format(utils.get_full_filepath(saved_models_dir, encoder_save)))
 		log.info("Retrieving saved decoder from {}".format(utils.get_full_filepath(saved_models_dir, decoder_save)))
-		encoder_w_att.load_state_dict(torch.load(utils.get_full_filepath(saved_models_dir, encoder_save)))
-		decoder_w_att.load_state_dict(torch.load(utils.get_full_filepath(saved_models_dir, decoder_save)))
+		encoder_wo_att.load_state_dict(torch.load(utils.get_full_filepath(saved_models_dir, encoder_save)))
+		decoder_wo_att.load_state_dict(torch.load(utils.get_full_filepath(saved_models_dir, decoder_save)))
 	else:
 		log.info("Check if encoder path exists: {}".format(utils.get_full_filepath(saved_models_dir, encoder_save)))
 		log.info("Check if decoder path exists: {}".format(utils.get_full_filepath(saved_models_dir, decoder_save)))
 		log.info("Encoder and Decoder do not exist! Starting to train...")
-		encoder_w_att, decoder_w_att, loss_hist, acc_hist = train_utilities.train_model(encoder_optimizer, decoder_optimizer, encoder_w_att, decoder_w_att, criterion, "attention", dataloader, en_lang, vi_lang, saved_models_dir, encoder_save, decoder_save, num_epochs = num_epochs, rm = 0.95, enc_scheduler = enc_scheduler, dec_scheduler = dec_scheduler)
+		encoder_wo_att, decoder_wo_att, loss_hist, acc_hist = train_utilities.train_model(encoder_optimizer, decoder_optimizer, encoder_wo_att, decoder_wo_att, criterion, "no_attention", dataloader, en_lang, vi_lang, saved_models_dir, encoder_save, decoder_save, num_epochs = num_epochs, rm = 0.95, enc_scheduler = enc_scheduler, dec_scheduler = dec_scheduler)
 		log.info("Total time is: {} min : {} s".format((time.time()-start)//60, (time.time()-start)%60))
 		log.info("We will save the encoder/decoder in this directory: {}".format(saved_models_dir))
 
 
 	# BLEU with beam size
-	bleu_no_unk, att_score_wo, pred_wo, src_wo = train_utilities.validation_beam_search(encoder_w_att, decoder_w_att, dataloader['validate'], en_lang, vi_lang, 'attention', beam_size, verbose = False)
+	bleu_no_unk, att_score_wo, pred_wo, src_wo = train_utilities.validation_beam_search(encoder_wo_att, decoder_wo_att, dataloader['validate'], en_lang, vi_lang, 'no_attention', beam_size, verbose = False)
 
 	log.info("Bleu-{} Score (No UNK): {}".format(beam_size, bleu_no_unk))
 	print("Bleu-{} Score (No UNK): {}".format(beam_size, bleu_no_unk))
 
-	bleu_unk, att_score_wo, pred_wo, src_wo = train_utilities.validation_beam_search(encoder_w_att, decoder_w_att,dataloader['validate'], en_lang, vi_lang, 'attention', beam_size, verbose = False, replace_unk = True)
+	bleu_unk, att_score_wo, pred_wo, src_wo = train_utilities.validation_beam_search(encoder_wo_att, decoder_wo_att,dataloader['validate'], en_lang, vi_lang, 'no_attention', beam_size, verbose = False, replace_unk = True)
 
 	log.info("Bleu-{} Score (UNK): {}".format(beam_size, bleu_unk))
 	print("Bleu-{} Score (UNK): {}".format(beam_size, bleu_unk))
@@ -174,7 +176,7 @@ def main():
 		log.info('Source: {} \nPrediction: {}\n---'.format(src_wo[i], pred_wo[i]))
 
 	log.info("Exported Binned Bleu Score Plot to {}!".format(plots_dir))
-	_, _, fig = utils.get_binned_bl_score(encoder = encoder_w_att, decoder = decoder_w_att, val_dataset = transformed_dataset['validate'], attn_flag = attn_flag, beam_size = beam_size, location = plots_dir, collate = collate_fn_dict['validate'], lang_en = en_lang, lang_vi = vi_lang)
+	_, _, fig = utils.get_binned_bl_score(encoder = encoder_wo_att, decoder = decoder_wo_att, val_dataset = transformed_dataset['validate'], attn_flag = attn_flag, beam_size = beam_size, location = plots_dir, collate = collate_fn_dict['validate'], lang_en = en_lang, lang_vi = vi_lang)
 
 
 if __name__ == "__main__":
