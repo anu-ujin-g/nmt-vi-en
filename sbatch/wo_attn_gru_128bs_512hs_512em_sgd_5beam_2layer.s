@@ -24,7 +24,7 @@ source activate nmt_env
 PROJECT=/scratch/${NETID}/nlp_project
 
 # Set arguments
-STUDY_NAME=wo_attn_gru_128bs_512hs_512em_sgd_3beam_2layer
+STUDY_NAME=wo_attn_gru_128bs_512hs_512em_sgd_5beam_2layer
 SAVE_DIR=${PROJECT}/saved_models
 DATA_DIR=${PROJECT}/nmt-vi-en/data/interim/iwslt15-en-vn
 PLOT_DIR=${PROJECT}/plots
